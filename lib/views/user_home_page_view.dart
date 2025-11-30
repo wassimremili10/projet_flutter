@@ -331,7 +331,7 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                               ? () => _reserveEvent(eventId, capacity, price)
                               : null,
                           style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                          child: const Text("Reserver",
+                          child: const Text("Réserver",
                               style: TextStyle(color: Colors.white)),
                         ),
                       ),
