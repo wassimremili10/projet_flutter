@@ -159,7 +159,7 @@ class UserHomePageView extends StatelessWidget {
                           onPressed: () => _registerToEvent(event.id!, context),
                           child: const Text(
                             "S'inscrire",
-                            style: TextStyle(fontSize: 16, color: Colors.white),
+                            style: TextStyle(fontSize: 17, color: Colors.white),
                           ),
                         ),
                       ),
