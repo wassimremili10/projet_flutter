@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
         "/register_user": (BuildContext context) => RegisterUserPageView(),
         "/register_organizer":(BuildContext context) => const RegisterOrganizerPageView(),
         "/user_home": (BuildContext context) => UserHomePageView(),
-        "/organizer_home": (BuildContext context) => OrganizerHomePageView(),
+        "/organizer_home": (BuildContext context) => AddEventPage(),
         
       },
     );
