@@ -16,6 +16,9 @@ class _UserHomePageViewState extends State<UserHomePageView> {
   String? filterLocation;
   double? filterMaxPrice;
 
+  // Pour suivre le nombre de places sélectionnées pour chaque événement
+  Map<String, int> selectedSeatsMap = {};
+
   // -------------------------------------------------------------
   // Filtres
   // -------------------------------------------------------------
@@ -142,7 +145,8 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                   allowHalfRating: true,
                   itemCount: 5,
                   itemSize: 30,
-                  itemBuilder: (c, _) => const Icon(Icons.star, color: Colors.orange),
+                  itemBuilder: (c, _) =>
+                      const Icon(Icons.star, color: Colors.orange),
                   onRatingUpdate: (v) => rating = v,
                 ),
                 TextField(
@@ -233,8 +237,12 @@ class _UserHomePageViewState extends State<UserHomePageView> {
         if (canReview)
           ElevatedButton(
             onPressed: () => _addReview(eventId),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text("Ajouter un avis"),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 108, 160, 224)),
+            child: const Text(
+  "Ajouter un avis",
+  style: TextStyle(color: Colors.white),
+),
+
           )
         else
           const Text(
@@ -280,7 +288,8 @@ class _UserHomePageViewState extends State<UserHomePageView> {
             final date = (data["datetime"] as Timestamp).toDate();
             final price = (data["price"] ?? 0).toDouble();
 
-            bool okCat = filterCategory == null || data["category"] == filterCategory;
+            bool okCat =
+                filterCategory == null || data["category"] == filterCategory;
             bool okDate = filterDate == null ||
                 (date.year == filterDate!.year &&
                     date.month == filterDate!.month &&
@@ -308,10 +317,15 @@ class _UserHomePageViewState extends State<UserHomePageView> {
               final eventId = event.id;
 
               final date = (data["datetime"] as Timestamp).toDate();
+              final capacity = (data["capacity"] ?? 0) as int;
+              final price = (data["price"] ?? 0).toDouble();
+
+              // Initialiser le compteur de places
+              selectedSeatsMap[eventId] ??= 1;
 
               return Card(
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
                 elevation: 6,
                 margin: const EdgeInsets.symmetric(vertical: 10),
                 child: Padding(
@@ -328,15 +342,13 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                       Text(data["description"]),
 
                       const SizedBox(height: 10),
-
                       Text("Lieu : ${data["location"]}"),
                       Text(
                           "Date : ${date.day}/${date.month}/${date.year} à ${date.hour}:${date.minute.toString().padLeft(2, '0')}"),
-                      Text("Prix : ${data["price"]} DT"),
-                      Text("Places restantes : ${data["capacity"]}"),
+                      Text("Prix : ${price} DT"),
+                      Text("Places restantes : ${capacity}"),
 
-                      const SizedBox(height: 20),
-                       const SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           const Icon(Icons.category, size: 20),
@@ -345,6 +357,102 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                         ],
                       ),
 
+                      const SizedBox(height: 12),
+
+                      // ---------------- Choix nombre de places ----------------
+                      if (capacity > 0) ...[
+                        Row(
+                          children: [
+                            const Text("Nombre de places : "),
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: () {
+                                setState(() {
+                                  if (selectedSeatsMap[eventId]! > 1) {
+                                    selectedSeatsMap[eventId] =
+                                        selectedSeatsMap[eventId]! - 1;
+                                  }
+                                });
+                              },
+                            ),
+                            Text("${selectedSeatsMap[eventId]}"),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              onPressed: () {
+                                setState(() {
+                                  if (selectedSeatsMap[eventId]! < capacity) {
+                                    selectedSeatsMap[eventId] =
+                                        selectedSeatsMap[eventId]! + 1;
+                                  }
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        Text(
+                            "Total : ${selectedSeatsMap[eventId]! * price} DT",
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                     ElevatedButton(
+  onPressed: capacity > 0
+      ? () async {
+          int seatsToBook = selectedSeatsMap[eventId]!;
+          final eventRef = FirebaseFirestore.instance
+              .collection("events")
+              .doc(eventId);
+
+          await FirebaseFirestore.instance.runTransaction((transaction) async {
+            final snapshot = await transaction.get(eventRef);
+            final currentCapacity = snapshot.get("capacity") ?? 0;
+
+            if (currentCapacity >= seatsToBook) {
+              transaction.update(eventRef, {
+                "capacity": currentCapacity - seatsToBook
+              });
+
+              final user = FirebaseAuth.instance.currentUser!;
+              transaction.set(
+                eventRef
+                    .collection("reservations")
+                    .doc(user.uid +
+                        DateTime.now().millisecondsSinceEpoch.toString()),
+                {
+                  "user_id": user.uid,
+                  "seats": seatsToBook,
+                  "total_price": seatsToBook * price,
+                  "timestamp": Timestamp.now(),
+                },
+              );
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Réservation de $seatsToBook place(s) réussie !")),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Nombre de places insuffisant.")),
+              );
+            }
+          });
+        }
+      : null,
+  style: ElevatedButton.styleFrom(
+    backgroundColor: const Color(0xFF3B7DDD), // 🔵 même bleu que l’AppBar
+    foregroundColor: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    padding: const EdgeInsets.symmetric(vertical: 14),
+  ),
+  child: Text(
+    capacity > 0
+        ? " Réserver ( ${capacity} places restantes ) "
+        : " Complet ",
+  ),
+),
+                      const SizedBox(height: 12),
 
                       // Avis + notation
                       _reviewsSection(eventId, date),
@@ -358,4 +466,4 @@ class _UserHomePageViewState extends State<UserHomePageView> {
       ),
     );
   }
-}
+} 
