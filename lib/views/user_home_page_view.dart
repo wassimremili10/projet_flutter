@@ -1,6 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class UserHomePageView extends StatefulWidget {
   const UserHomePageView({super.key});
@@ -15,7 +16,9 @@ class _UserHomePageViewState extends State<UserHomePageView> {
   String? filterLocation;
   double? filterMaxPrice;
 
-  // 🔽 Ouvre le panel de filtres
+  // -------------------------------------------------------------
+  // Filtres
+  // -------------------------------------------------------------
   void _openFilters() {
     showModalBottomSheet(
       context: context,
@@ -27,14 +30,12 @@ class _UserHomePageViewState extends State<UserHomePageView> {
           padding: const EdgeInsets.all(20),
           child: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text("Filtres",
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
 
-                // Catégorie
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: "Catégorie"),
                   value: filterCategory,
@@ -44,50 +45,44 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                     DropdownMenuItem(value: "Art", child: Text("Art")),
                     DropdownMenuItem(value: "Cinéma", child: Text("Cinéma")),
                   ],
-                  onChanged: (value) => setState(() => filterCategory = value),
+                  onChanged: (val) => setState(() => filterCategory = val),
                 ),
-                const SizedBox(height: 10),
 
-                // Date
+                const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () async {
-                    DateTime? d = await showDatePicker(
+                    DateTime? picked = await showDatePicker(
                       context: context,
-                      initialDate: filterDate ?? DateTime.now(),
+                      initialDate: DateTime.now(),
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2100),
                     );
-                    if (d != null) setState(() => filterDate = d);
+                    if (picked != null) {
+                      setState(() => filterDate = picked);
+                    }
                   },
                   child: Text(filterDate == null
                       ? "Filtrer par date"
-                      : "Date : ${filterDate!.day}/${filterDate!.month}/${filterDate!.year}"),
+                      : "${filterDate!.day}/${filterDate!.month}/${filterDate!.year}"),
                 ),
-                const SizedBox(height: 10),
 
-                // Lieu
+                const SizedBox(height: 12),
                 TextField(
                   decoration: const InputDecoration(labelText: "Lieu"),
-                  onChanged: (value) =>
-                      setState(() => filterLocation = value.trim()),
+                  onChanged: (v) => setState(() => filterLocation = v.trim()),
                 ),
-                const SizedBox(height: 10),
 
-                // Prix maximum
+                const SizedBox(height: 12),
                 TextField(
                   decoration: const InputDecoration(
-                      labelText: "Prix maximum (DT)",
-                      prefixIcon: Icon(Icons.monetization_on)),
+                      labelText: "Prix max", prefixIcon: Icon(Icons.money)),
                   keyboardType: TextInputType.number,
-                  onChanged: (val) {
-                    setState(() {
-                      filterMaxPrice = double.tryParse(val);
-                    });
-                  },
+                  onChanged: (v) =>
+                      setState(() => filterMaxPrice = double.tryParse(v)),
                 ),
+
                 const SizedBox(height: 20),
 
-                // Boutons
                 Row(
                   children: [
                     Expanded(
@@ -101,8 +96,8 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                           });
                           Navigator.pop(context);
                         },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red),
+                        style:
+                            ElevatedButton.styleFrom(backgroundColor: Colors.red),
                         child: const Text("Réinitialiser"),
                       ),
                     ),
@@ -114,9 +109,9 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                             backgroundColor: Colors.blue),
                         child: const Text("Appliquer"),
                       ),
-                    ),
+                    )
                   ],
-                ),
+                )
               ],
             ),
           ),
@@ -125,40 +120,36 @@ class _UserHomePageViewState extends State<UserHomePageView> {
     );
   }
 
-  // 🔽 Réserver plusieurs places avec paiement simulé
-  Future<void> _reserveEvent(
-      String eventId, int availableCapacity, double price) async {
-    int selectedSeats = 1;
+  // -------------------------------------------------------------
+  // Enregistrement d'un avis + note
+  // -------------------------------------------------------------
+  Future<void> _addReview(String eventId) async {
+    final user = FirebaseAuth.instance.currentUser!;
+    double rating = 3;
+    final TextEditingController commentController = TextEditingController();
 
     await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(builder: (context, setStateDialog) {
+        context: context,
+        builder: (context) {
           return AlertDialog(
-            title: const Text("Réserver un événement"),
+            title: const Text("Donner un avis"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Nombre de places disponibles: $availableCapacity"),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                        onPressed: selectedSeats > 1
-                            ? () => setStateDialog(() => selectedSeats--)
-                            : null,
-                        icon: const Icon(Icons.remove)),
-                    Text("$selectedSeats"),
-                    IconButton(
-                        onPressed: selectedSeats < availableCapacity
-                            ? () => setStateDialog(() => selectedSeats++)
-                            : null,
-                        icon: const Icon(Icons.add)),
-                  ],
+                RatingBar.builder(
+                  initialRating: 3,
+                  minRating: 1,
+                  allowHalfRating: true,
+                  itemCount: 5,
+                  itemSize: 30,
+                  itemBuilder: (c, _) => const Icon(Icons.star, color: Colors.orange),
+                  onRatingUpdate: (v) => rating = v,
                 ),
-                const SizedBox(height: 10),
-                Text("Prix total: ${selectedSeats * price} DT"),
+                TextField(
+                  controller: commentController,
+                  decoration:
+                      const InputDecoration(labelText: "Commentaire..."),
+                ),
               ],
             ),
             actions: [
@@ -166,46 +157,97 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text("Annuler")),
               ElevatedButton(
-                  onPressed: () async {
-                    // 🔹 Simuler paiement
-                    bool paymentSuccess = true; // ici tu peux intégrer Stripe test
-                    if (paymentSuccess) {
-                      // 🔹 Enregistrer la réservation
-                      await FirebaseFirestore.instance
-                          .collection("events")
-                          .doc(eventId)
-                          .collection("registrations")
-                          .add({
-                        "seats": selectedSeats,
-                        "paid": true,
-                        "registered_at": Timestamp.now(),
-                      });
+                onPressed: () async {
+                  await FirebaseFirestore.instance
+                      .collection("events")
+                      .doc(eventId)
+                      .collection("reviews")
+                      .add({
+                    "user_id": user.uid,
+                    "rating": rating,
+                    "comment": commentController.text,
+                    "date": Timestamp.now(),
+                  });
 
-                      // 🔹 Mettre à jour la capacité restante
-                      await FirebaseFirestore.instance
-                          .collection("events")
-                          .doc(eventId)
-                          .update({
-                        "capacity": availableCapacity - selectedSeats
-                      });
-
-                      Navigator.pop(context);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text(
-                                "Réservation réussie pour $selectedSeats place(s)!")),
-                      );
-                    }
-                  },
-                  child: const Text("Confirmer")),
+                  Navigator.pop(context);
+                },
+                child: const Text("Publier"),
+              )
             ],
           );
         });
-      },
+  }
+
+  // -------------------------------------------------------------
+  // Widget Avis + formulaire après date
+  // -------------------------------------------------------------
+  Widget _reviewsSection(String eventId, DateTime eventDate) {
+    final bool canReview = eventDate.isBefore(DateTime.now());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Avis utilisateurs",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+
+        const SizedBox(height: 6),
+
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection("events")
+              .doc(eventId)
+              .collection("reviews")
+              .orderBy("date", descending: true)
+              .snapshots(),
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final reviews = snap.data!.docs;
+
+            if (reviews.isEmpty) {
+              return const Text("Aucun avis pour le moment.");
+            }
+
+            return Column(
+              children: reviews.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+
+                return ListTile(
+                  leading: Icon(Icons.person, color: Colors.blue.shade700),
+                  title: Row(
+                    children: [
+                      Text("${data['rating']}★"),
+                    ],
+                  ),
+                  subtitle: Text(data["comment"] ?? ""),
+                );
+              }).toList(),
+            );
+          },
+        ),
+
+        const SizedBox(height: 10),
+
+        if (canReview)
+          ElevatedButton(
+            onPressed: () => _addReview(eventId),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text("Ajouter un avis"),
+          )
+        else
+          const Text(
+            "Vous pouvez noter cet événement après sa date.",
+            style: TextStyle(color: Colors.grey),
+          )
+      ],
     );
   }
 
+  // -------------------------------------------------------------
+  // BUILD
+  // -------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,7 +259,7 @@ class _UserHomePageViewState extends State<UserHomePageView> {
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _openFilters,
-          ),
+          )
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -232,47 +274,40 @@ class _UserHomePageViewState extends State<UserHomePageView> {
 
           List docs = snapshot.data!.docs;
 
-          // 🔥 FILTRAGE LOCAL
+          // ---------------- FILTRAGE LOCAL -----------------
           docs = docs.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
             final date = (data["datetime"] as Timestamp).toDate();
-            final double price = (data["price"] ?? 0).toDouble();
+            final price = (data["price"] ?? 0).toDouble();
 
-            bool matchCat =
-                filterCategory == null || data["category"] == filterCategory;
-
-            bool matchDate = filterDate == null ||
+            bool okCat = filterCategory == null || data["category"] == filterCategory;
+            bool okDate = filterDate == null ||
                 (date.year == filterDate!.year &&
                     date.month == filterDate!.month &&
                     date.day == filterDate!.day);
+            bool okLoc = filterLocation == null ||
+                filterLocation!.isEmpty ||
+                (data["location"] ?? "")
+                    .toLowerCase()
+                    .contains(filterLocation!.toLowerCase());
+            bool okPrice = filterMaxPrice == null || price <= filterMaxPrice!;
 
-            bool matchLoc =
-                filterLocation == null ||
-                    filterLocation!.isEmpty ||
-                    (data["location"] ?? "")
-                        .toString()
-                        .toLowerCase()
-                        .contains(filterLocation!.toLowerCase());
-
-            bool matchPrice = filterMaxPrice == null || price <= filterMaxPrice!;
-
-            return matchCat && matchDate && matchLoc && matchPrice;
+            return okCat && okDate && okLoc && okPrice;
           }).toList();
 
           if (docs.isEmpty) {
-            return const Center(
-                child: Text("Aucun événement ne correspond aux filtres."));
+            return const Center(child: Text("Aucun événement trouvé."));
           }
 
           return ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
-              final eventId = docs[index].id;
+              final event = docs[index];
+              final data = event.data() as Map<String, dynamic>;
+              final eventId = event.id;
+
               final date = (data["datetime"] as Timestamp).toDate();
-              final capacity = (data["capacity"] ?? 0) as int;
-              final price = (data["price"] ?? 0).toDouble();
 
               return Card(
                 shape:
@@ -284,14 +319,24 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(data["title"],
+                          style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue)),
+                      const SizedBox(height: 10),
+                      Text(data["description"]),
+
+                      const SizedBox(height: 10),
+
+                      Text("Lieu : ${data["location"]}"),
                       Text(
-                        data["title"] ?? "Titre",
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue),
-                      ),
-                      const SizedBox(height: 8),
+                          "Date : ${date.day}/${date.month}/${date.year} à ${date.hour}:${date.minute.toString().padLeft(2, '0')}"),
+                      Text("Prix : ${data["price"]} DT"),
+                      Text("Places restantes : ${data["capacity"]}"),
+
+                      const SizedBox(height: 20),
+                       const SizedBox(height: 8),
                       Row(
                         children: [
                           const Icon(Icons.category, size: 20),
@@ -299,42 +344,10 @@ class _UserHomePageViewState extends State<UserHomePageView> {
                           Expanded(child: Text(data["category"] ?? "Catégorie")),
                         ],
                       ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 20),
-                          const SizedBox(width: 6),
-                          Text("${date.day}/${date.month}/${date.year} • ${date.hour}:${date.minute.toString().padLeft(2, '0')}"),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, size: 20),
-                          const SizedBox(width: 6),
-                          Expanded(child: Text(data["location"] ?? "Lieu")),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(data["description"] ?? "Aucune description"),
-                      const SizedBox(height: 10),
-                      Text("Prix : $price DT",
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 5),
-                      Text("Places disponibles : $capacity",
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: capacity > 0
-                              ? () => _reserveEvent(eventId, capacity, price)
-                              : null,
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                          child: const Text("Réserver",
-                              style: TextStyle(color: Colors.white)),
-                        ),
-                      ),
+
+
+                      // Avis + notation
+                      _reviewsSection(eventId, date),
                     ],
                   ),
                 ),
