@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'my_reservations_page.dart';
+
 
 class UserHomePageView extends StatefulWidget {
   const UserHomePageView({super.key});
@@ -264,11 +266,24 @@ class _UserHomePageViewState extends State<UserHomePageView> {
         title: const Text("Événements disponibles"),
         backgroundColor: const Color(0xFF3B7DDD),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _openFilters,
-          )
-        ],
+  IconButton(
+    icon: const Icon(Icons.bookmark),
+    tooltip: "Mes réservations",
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const MyReservationsPage(),
+        ),
+      );
+    },
+  ),
+  IconButton(
+    icon: const Icon(Icons.filter_list),
+    onPressed: _openFilters,
+  ),
+],
+
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -466,4 +481,4 @@ class _UserHomePageViewState extends State<UserHomePageView> {
       ),
     );
   }
-} 
+  }

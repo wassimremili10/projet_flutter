@@ -11,6 +11,7 @@ class EventModel {
   double? longitude;
   int capacity;
   double price;
+  String organizerId; // 🔥 IMPORTANT
 
   EventModel({
     this.id,
@@ -23,6 +24,7 @@ class EventModel {
     this.longitude,
     required this.capacity,
     required this.price,
+    required this.organizerId, // 🔥 IMPORTANT
   });
 
   Map<String, dynamic> toMap() {
@@ -36,6 +38,7 @@ class EventModel {
       'longitude': longitude,
       'capacity': capacity,
       'price': price,
+      'organizer_id': organizerId, // 🔥 OBLIGATOIRE
       'created_at': Timestamp.now(),
     };
   }
@@ -53,6 +56,8 @@ class EventModel {
       longitude: data['longitude'],
       capacity: data['capacity'],
       price: (data['price'] as num).toDouble(),
+      organizerId: data['organizer_id'], // 🔥 OBLIGATOIRE
+      
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'map_picker_page.dart';
-import 'organizer_events_page.dart';
+import 'OrganizerEventsPage.dart';
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -57,6 +57,7 @@ class _AddEventPageState extends State<AddEventPage> {
         "capacity": int.parse(_capacityController.text),
         "price": double.parse(_priceController.text),
         "created_at": Timestamp.now(),
+      
       });
 
       // 🚀 Aller automatiquement vers la page Mes événements

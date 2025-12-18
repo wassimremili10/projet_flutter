@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'map_picker_page.dart';
@@ -13,11 +12,13 @@ class EditEventPage extends StatefulWidget {
 
 class _EditEventPageState extends State<EditEventPage> {
   final _formKey = GlobalKey<FormState>();
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _capacityController = TextEditingController();
+
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   String? selectedLocation;
@@ -28,57 +29,71 @@ class _EditEventPageState extends State<EditEventPage> {
     _loadEvent();
   }
 
+  // ------------------- LOAD EVENT DATA -------------------
   Future<void> _loadEvent() async {
     final doc = await FirebaseFirestore.instance
-        .collection('events')
+        .collection("events")
         .doc(widget.eventId)
         .get();
-    if (doc.exists) {
-      final data = doc.data()!;
-      _titleController.text = data['title'];
-      _descriptionController.text = data['description'];
-      _categoryController.text = data['category'];
-      _priceController.text = data['price'].toString();
-      _capacityController.text = data['capacity'].toString();
-      selectedLocation = data['location'];
-      final datetime = (data['datetime'] as Timestamp).toDate();
-      selectedDate = datetime;
-      selectedTime = TimeOfDay(hour: datetime.hour, minute: datetime.minute);
-      setState(() {});
+
+    if (!doc.exists) return;
+
+    final data = doc.data()!;
+
+    _titleController.text = data["title"] ?? "";
+    _descriptionController.text = data["description"] ?? "";
+    _categoryController.text = data["category"] ?? "";
+    _priceController.text = data["price"] != null ? data["price"].toString() : "";
+    _capacityController.text = data["capacity"] != null ? data["capacity"].toString() : "";
+    selectedLocation = data["location"] ?? "";
+
+    if (data["datetime"] != null) {
+      final dt = (data["datetime"] as Timestamp).toDate();
+      selectedDate = dt;
+      selectedTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
     }
+
+    setState(() {});
   }
 
+  // ------------------- UPDATE EVENT DATA -------------------
   Future<void> _updateEvent() async {
-    if (_formKey.currentState!.validate()) {
-      DateTime eventDateTime = DateTime(
-        selectedDate!.year,
-        selectedDate!.month,
-        selectedDate!.day,
-        selectedTime!.hour,
-        selectedTime!.minute,
-      );
+    if (!_formKey.currentState!.validate()) return;
 
-      await FirebaseFirestore.instance
-          .collection('events')
-          .doc(widget.eventId)
-          .update({
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'category': _categoryController.text,
-        'price': double.tryParse(_priceController.text) ?? 0,
-        'capacity': int.tryParse(_capacityController.text) ?? 0,
-        'location': selectedLocation,
-        'datetime': Timestamp.fromDate(eventDateTime),
-      });
+    DateTime eventDateTime = DateTime(
+      selectedDate?.year ?? DateTime.now().year,
+      selectedDate?.month ?? DateTime.now().month,
+      selectedDate?.day ?? DateTime.now().day,
+      selectedTime?.hour ?? 12,
+      selectedTime?.minute ?? 0,
+    );
 
-      Navigator.pop(context);
-    }
+    await FirebaseFirestore.instance
+        .collection("events")
+        .doc(widget.eventId)
+        .update({
+      "title": _titleController.text,
+      "description": _descriptionController.text,
+      "category": _categoryController.text,
+      "price": double.tryParse(_priceController.text) ?? 0,
+      "capacity": int.tryParse(_capacityController.text) ?? 0,
+      "location": selectedLocation,
+      "datetime": Timestamp.fromDate(eventDateTime),
+      // ❌ PAS DE organizer_id ICI
+    });
+
+    Navigator.pop(context);
   }
 
+  // ------------------- UI -------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Modifier l'événement"), backgroundColor: Colors.blue),
+      appBar: AppBar(
+        title: const Text("Modifier l'événement"),
+        backgroundColor: Colors.blue,
+      ),
+
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -90,72 +105,80 @@ class _EditEventPageState extends State<EditEventPage> {
                 decoration: const InputDecoration(labelText: "Titre"),
                 validator: (v) => v!.isEmpty ? "Champ requis" : null,
               ),
+
               const SizedBox(height: 10),
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: "Description"),
                 validator: (v) => v!.isEmpty ? "Champ requis" : null,
               ),
+
               const SizedBox(height: 10),
               TextFormField(
                 controller: _categoryController,
                 decoration: const InputDecoration(labelText: "Catégorie"),
-                validator: (v) => v!.isEmpty ? "Champ requis" : null,
               ),
+
               const SizedBox(height: 10),
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(labelText: "Prix"),
                 keyboardType: TextInputType.number,
               ),
+
               const SizedBox(height: 10),
               TextFormField(
                 controller: _capacityController,
                 decoration: const InputDecoration(labelText: "Capacité"),
                 keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 10),
-              // Date
+
+              const SizedBox(height: 20),
+
               ElevatedButton(
                 onPressed: () async {
-                  DateTime? pickedDate = await showDatePicker(
+                  DateTime? picked = await showDatePicker(
                     context: context,
                     initialDate: selectedDate ?? DateTime.now(),
                     firstDate: DateTime.now(),
                     lastDate: DateTime(2100),
                   );
-                  if (pickedDate != null) {
-                    setState(() {
-                      selectedDate = pickedDate;
-                    });
+                  if (picked != null) {
+                    setState(() => selectedDate = picked);
                   }
                 },
-                child: Text(selectedDate == null
-                    ? "Sélectionner la date"
-                    : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}"),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: Text(
+                  selectedDate == null
+                      ? "Sélectionner la date"
+                      : "${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}",
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
+
               const SizedBox(height: 10),
-              // Heure
+
               ElevatedButton(
                 onPressed: () async {
-                  TimeOfDay? pickedTime = await showTimePicker(
+                  TimeOfDay? picked = await showTimePicker(
                     context: context,
                     initialTime: selectedTime ?? TimeOfDay.now(),
                   );
-                  if (pickedTime != null) {
-                    setState(() {
-                      selectedTime = pickedTime;
-                    });
+                  if (picked != null) {
+                    setState(() => selectedTime = picked);
                   }
                 },
-                child: Text(selectedTime == null
-                    ? "Sélectionner l'heure"
-                    : "${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}"),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: Text(
+                  selectedTime == null
+                      ? "Sélectionner l'heure"
+                      : "${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}",
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
+
               const SizedBox(height: 10),
-              // Lieu
+
               ElevatedButton(
                 onPressed: () async {
                   final result = await Navigator.push(
@@ -163,21 +186,27 @@ class _EditEventPageState extends State<EditEventPage> {
                     MaterialPageRoute(builder: (context) => const MapPickerPage()),
                   );
                   if (result != null) {
-                    setState(() {
-                      selectedLocation = result;
-                    });
+                    setState(() => selectedLocation = result);
                   }
                 },
-                child: Text(selectedLocation == null
-                    ? "Choisir le lieu"
-                    : "Lieu choisi : $selectedLocation"),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: Text(
+                  selectedLocation == null
+                      ? "Choisir le lieu"
+                      : "Lieu : $selectedLocation",
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
+
               const SizedBox(height: 20),
+
               ElevatedButton(
                 onPressed: _updateEvent,
-                child: const Text("Enregistrer les modifications"),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                child: const Text(
+                  "Enregistrer",
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -186,4 +215,3 @@ class _EditEventPageState extends State<EditEventPage> {
     );
   }
 }
- 

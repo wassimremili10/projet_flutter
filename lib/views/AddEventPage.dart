@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'map_picker_page.dart';
-import 'organizer_events_page.dart';
+import 'OrganizerEventsPage.dart';
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -28,15 +28,18 @@ class _AddEventPageState extends State<AddEventPage> {
 
   Future<void> _addEvent() async {
     if (_formKey.currentState!.validate()) {
-      if (selectedLocation == null || selectedDate == null || selectedTime == null) {
+      if (selectedLocation == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Veuillez remplir tous les champs")),
+          const SnackBar(content: Text("Veuillez choisir un lieu")),
         );
         return;
       }
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (selectedDate == null || selectedTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Veuillez sélectionner la date et l'heure")),
+        );
+        return;
+      }
 
       DateTime eventDateTime = DateTime(
         selectedDate!.year,
@@ -46,21 +49,30 @@ class _AddEventPageState extends State<AddEventPage> {
         selectedTime!.minute,
       );
 
+      // Récupérer le nom de l'organisateur depuis Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .get();
+      String organizerName = userDoc.data()?["name"] ?? "Organisateur";
+
       await FirebaseFirestore.instance.collection("events").add({
         "title": _titleController.text,
         "description": _descriptionController.text,
         "category": _categoryController.text,
         "datetime": Timestamp.fromDate(eventDateTime),
         "location": selectedLocation,
-        "capacity": int.tryParse(_capacityController.text) ?? 0,
-        "price": double.tryParse(_priceController.text) ?? 0.0,
+        "capacity": int.parse(_capacityController.text),
+        "price": double.parse(_priceController.text),
+        "organizer_id": FirebaseAuth.instance.currentUser!.uid,
+        "organizer_name": organizerName, // ✅ Nom ajouté
         "created_at": Timestamp.now(),
-        "organizer_id": user.uid, // ✅ Stocke l'organisateur
       });
 
+      // Aller automatiquement vers la page Mes événements
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const OrganizerEventsPage()),
+        MaterialPageRoute(builder: (context) => const OrganizerEventsPage()),
       );
     }
   }
@@ -99,7 +111,7 @@ class _AddEventPageState extends State<AddEventPage> {
         } else if (label.contains("Heure")) {
           TimeOfDay? pickedTime = await showTimePicker(
             context: context,
-            initialTime: selectedTime ?? TimeOfDay.now(),
+            initialTime: TimeOfDay.now(),
           );
           if (pickedTime != null) {
             setState(() {
@@ -116,7 +128,24 @@ class _AddEventPageState extends State<AddEventPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Ajouter un événement"), backgroundColor: Colors.blue),
+      appBar: AppBar(
+        title: const Text("Ajouter un événement"),
+        backgroundColor: Colors.blue,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OrganizerEventsPage()),
+              );
+            },
+            child: const Text(
+              "Mes Événements",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
       backgroundColor: Colors.grey.shade200,
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -128,6 +157,7 @@ class _AddEventPageState extends State<AddEventPage> {
               const SizedBox(height: 12),
               _buildTextField(_descriptionController, "Description", Icons.description),
               const SizedBox(height: 12),
+
               // Catégorie
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -142,7 +172,9 @@ class _AddEventPageState extends State<AddEventPage> {
                     labelText: "Catégorie",
                     prefixIcon: Icon(Icons.category),
                   ),
-                  value: _categoryController.text.isEmpty ? null : _categoryController.text,
+                  value: _categoryController.text.isEmpty
+                      ? null
+                      : _categoryController.text,
                   items: const [
                     DropdownMenuItem(value: "Cinéma", child: Text("Cinéma")),
                     DropdownMenuItem(value: "Sport", child: Text("Sport")),
@@ -150,35 +182,60 @@ class _AddEventPageState extends State<AddEventPage> {
                     DropdownMenuItem(value: "Music", child: Text("Music")),
                   ],
                   onChanged: (value) => _categoryController.text = value!,
-                  validator: (value) => value == null ? "Veuillez choisir une catégorie" : null,
+                  validator: (value) =>
+                      value == null ? "Veuillez choisir une catégorie" : null,
                 ),
               ),
+
               const SizedBox(height: 12),
               _buildTextField(_dateController, "Date", Icons.calendar_today, readOnly: true),
               const SizedBox(height: 12),
               _buildTextField(_timeController, "Heure", Icons.access_time, readOnly: true),
               const SizedBox(height: 12),
-              _buildTextField(_capacityController, "Nombre de places", Icons.people, keyboardType: TextInputType.number),
+
+              _buildTextField(_capacityController, "Nombre de places", Icons.people,
+                  keyboardType: TextInputType.number),
               const SizedBox(height: 12),
-              _buildTextField(_priceController, "Prix", Icons.monetization_on, keyboardType: TextInputType.number),
+
+              _buildTextField(_priceController, "Prix", Icons.monetization_on,
+                  keyboardType: TextInputType.number),
               const SizedBox(height: 12),
+
               ElevatedButton.icon(
                 onPressed: () async {
                   final result = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const MapPickerPage()),
+                    MaterialPageRoute(builder: (context) => const MapPickerPage()),
                   );
-                  if (result != null) setState(() => selectedLocation = result);
+
+                  if (result != null) {
+                    setState(() => selectedLocation = result);
+                  }
                 },
                 icon: const Icon(Icons.map),
-                label: Text(selectedLocation == null ? "Choisir le lieu" : "Lieu choisi : $selectedLocation"),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                label: Text(selectedLocation == null
+                    ? "Choisir le lieu sur la carte"
+                    : "Lieu choisi : $selectedLocation"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
+
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _addEvent,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, padding: const EdgeInsets.symmetric(vertical: 14)),
-                child: const Text("Ajouter", style: TextStyle(fontSize: 18, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Ajouter",
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
               ),
             ],
           ),
